@@ -1,0 +1,18 @@
+{
+  "appSelected": {
+    "appId": "5765880207854447895",
+    "appName": "Exam",
+    "deviceTypes": [
+      {
+        "deviceType": 4
+      }
+    ],
+    "enableSites": "CN",
+    "installationFree": 0,
+    "packageType": 7,
+    "projectId": "388421841222171467",
+    "projectName": "gbh_exam",
+    "siteId": "CN"
+  },
+  "teamId": "260086000247525698"
+}
