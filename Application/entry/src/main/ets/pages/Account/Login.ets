@@ -1,13 +1,14 @@
 import { Constants } from '../../common/index';
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
+import cloud, { VerifyCodeAction } from '@hw-agconnect/cloud';
 
 @Extend(TextInput)
 function commonStyle() {
   .width(280)
   .height(40)
   .backgroundColor('#F9F9F9')
-  .placeholderColor($r("app.color.gray_color"))
+  .placeholderColor($r("app.color.gray_light_color"))
   .fontColor($r("app.color.gray_color"))
 }
 
@@ -21,9 +22,12 @@ function commonButtonStyle() {
 @Component
 struct Login {
   @State
-  mobile: string = "13812345678"
+  mobile: string = "18367194153"
   @State
   code: string = ""
+  @State
+  timeCount: number = 60
+  timer: number = -1
 
   // 检查手机号合法
   checkMobile() {
@@ -33,6 +37,32 @@ struct Login {
   // 检查验证码合法性
   checkCode() {
     return !!(this.code && new RegExp('^\\d{6}$').test(this.code))
+  }
+
+  async sendCode() {
+    if (this.timeCount < 60) return;
+    await cloud.auth().requestVerifyCode({
+      action: VerifyCodeAction.REGISTER_LOGIN,
+      lang: 'zh_CN',
+      sendInterval: 60,
+      verifyCodeType: {
+        countryCode: '86',
+        phoneNumber: this.mobile,
+        kind: 'phone'
+      }
+    })
+    this.beginCount()
+  }
+
+  beginCount() {
+    this.timer = setInterval(() => {
+      if (this.timeCount === 0) {
+        clearInterval(this.timer)
+        this.timeCount = 60
+        return
+      }
+      this.timeCount--
+    }, 1000)
   }
 
   async login() {
@@ -60,22 +90,26 @@ struct Login {
         TextInput({ placeholder: '请输入手机号', text: this.mobile })
           .commonStyle()
           .height(48)
-          .onChange(value => {
-            this.mobile = value
+          .onChange((value) => {
+            this.mobile = value;
           })
 
         Stack({ alignContent: Alignment.End }) {
           TextInput({ placeholder: '请输入验证码', text: this.code })
             .commonStyle()
             .height(48)
-            .onChange(value => {
-              this.code = value
+            .onChange((value) => {
+              this.code = value;
             })
-          Text('获取验证码')
+          Text(this.timeCount < 60 ? `${this.timeCount}秒` : '获取验证码')
             .fontSize(13)
-            .fontColor( $r("app.color.send_disable_color"))
+            .fontColor($r("app.color.send_disable_color"))
             .margin({
               right: 10
+            })
+            .enabled(this.checkMobile() && this.timeCount === 60)
+            .onClick(() => {
+              this.sendCode()
             })
         }
 
