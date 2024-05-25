@@ -1,9 +1,12 @@
+import { QuestionClassify } from '../../models'
 
 @Component
 export struct ClassifyItem {
+  item: QuestionClassify = new QuestionClassify()
+
   build() {
     Flex() {
-      Image($r('app.media.ic_cover1'))
+      Image(this.item.image_url || $r('app.media.ic_cover1'))
         .alignSelf(ItemAlign.Center)
         .height(80)
         .width(60)
@@ -11,7 +14,7 @@ export struct ClassifyItem {
 
       Column() {
         Column() {
-          Text("HarmonyOD应用开发初级认证")
+          Text(this.item.title)
             .fontSize(14)
             .fontWeight(500)
             .textAlign(TextAlign.Start)
@@ -24,7 +27,7 @@ export struct ClassifyItem {
             .fontColor('#3266EE')
             .fontSize(12)
             .fontWeight(400)
-          Text(`/3节 | 已学进度：10%`)
+          Text(`/${this.item.num}节 | 已学进度：10%`)
             .fontColor($r("app.color.gray_color"))
             .fontSize(12)
             .fontWeight(400)

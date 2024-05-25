@@ -6,6 +6,8 @@ import { BusinessError } from '@ohos.base';
 import { initialize } from '@hw-agconnect/hmcore';
 import buffer from '@ohos.buffer';
 import { Constants } from '../common';
+import { UserSetting } from '../utils';
+import cloud, { AuthUser } from '@hw-agconnect/cloud';
 
 export default class EntryAbility extends UIAbility {
   onCreate() {
@@ -42,6 +44,13 @@ export default class EntryAbility extends UIAbility {
      const bottomHeight = win.getWindowAvoidArea(Window.AvoidAreaType.TYPE_KEYBOARD).bottomRect.height
     AppStorage.setOrCreate("topHeight", px2vp(topHeight))
     AppStorage.setOrCreate("bottomHeight", px2vp(bottomHeight))
+    UserSetting.context = this.context // 赋值上下文
+    if(UserSetting.getUserAuth()) {
+      // 已经登录过了
+      toPath = Constants.PAGE_INDEX // 换成主页
+      // Constants.USER_AUTH_KEY
+      AppStorage.setOrCreate<AuthUser>('user_auth_key',  await cloud.auth().getCurrentUser())
+    }
     windowStage.loadContent(toPath, (err, data) => {
       if (err.code) {
         hilog.error(0x0000, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err) ?? '');

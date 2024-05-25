@@ -1,10 +1,22 @@
 import router from '@ohos.router'
 import { Constants } from '../../common/index'
+import { UserCollect } from '../../models'
+import { QuestionUserAllService } from '../../service'
 import { Top } from './Top'
 
 @Entry
 @Component
 export struct Home {
+  @State
+  collect: UserCollect = new UserCollect()
+
+  aboutToAppear(): void {
+    this.getUserCollect()
+  }
+
+  async getUserCollect() {
+    this.collect = await QuestionUserAllService.getUserCollect()
+  }
 
   build() {
     Row() {
@@ -18,7 +30,7 @@ export struct Home {
             Column({ space: 3 }) {
               Text('在线答题')
                 .fontSize(13)
-              Text('100人参与')
+              Text(this.collect.all_people + '人参与')
                 .width(74)
                 .textAlign(TextAlign.Center)
                 .fontSize(11)
@@ -43,13 +55,14 @@ export struct Home {
               Column({ space: 3 }) {
                 Text('错题集合')
                   .fontSize(13)
-                Text('10道错题')
+                Text(this.collect.all_wrong + '道错题')
                   .width(64)
                   .textAlign(TextAlign.Center)
                   .fontSize(11)
                   .fontColor('#979797')
               }
               .height(38)
+
               Image($r('app.media.ic_problems'))
                 .width(38)
                 .aspectRatio(1)
@@ -61,7 +74,12 @@ export struct Home {
           .borderRadius(8)
         }
         .height(58)
-        .margin({ top: 0, bottom: 10, left: 16, right: 16 })
+        .margin({
+          top: 0,
+          bottom: 10,
+          left: 16,
+          right: 16
+        })
 
         // 答题排行榜
         Top()

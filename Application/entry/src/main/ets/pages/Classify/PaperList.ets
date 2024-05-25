@@ -1,10 +1,33 @@
+import { AuthUser } from '@hw-agconnect/cloud';
 import router from '@ohos.router'
 import { Constants } from '../../common/index';
+import { QuestionPaper } from '../../models';
+import { CommonRouterParams } from '../../models/common';
+import { QuestionPaperService } from '../../service/paper';
 import PaperItem from './PaperItem';
+import { AuthDefaultUser } from '@hw-agconnect/cloud/src/main/ets/auth/user/AuthDefaultUser';
+import { QuestionUserAllService } from '../../service';
+
 
 @Entry
 @Component
 struct PaperList {
+  @StorageProp('user_auth_key')
+  currentUser: AuthUser = new AuthDefaultUser()
+  @State
+  list: QuestionPaper[] = []
+
+  aboutToAppear(): void {
+    this.getPaperList()
+  }
+
+  async getPaperList() {
+    const params = router.getParams() as CommonRouterParams
+    if (params && params.classifyId) {
+      this.list = await QuestionPaperService.getQuestionPaperList(params.classifyId)
+    }
+  }
+
   build() {
     Navigation() {
       Column() {
@@ -14,21 +37,48 @@ struct PaperList {
             .aspectRatio(1)
         }
         .width('100%')
-        .padding({ top: 20, bottom: 20, left: 15, right: 15 })
+        .padding({
+          top: 20,
+          bottom: 20,
+          left: 15,
+          right: 15
+        })
 
         List() {
-          ForEach([1, 2, 3, 4, 5], () => {
+          ForEach(this.list, (item: QuestionPaper) => {
             ListItem() {
-              PaperItem()
+              PaperItem({ item })
                 .onClick(async () => {
-                  router.pushUrl({
-                    url: Constants.PAGE_ANSWER_DETAIL
-                  })
+                  const list = await QuestionUserAllService.getQuestionUserDetail(item.classify_id, item.id!, this.currentUser.getUid())
+                  if (list.length) {
+                    // 说明有结果了 不能做题了 直接去结果页看结果
+                    router.pushUrl({
+                      url: Constants.PAGE_ANSWER_RESULT,
+                      params: {
+                        classifyId: item.classify_id,
+                        paperId: item.id
+                      }
+                    })
+                  } else {
+                    router.pushUrl({
+                      url: Constants.PAGE_ANSWER_DETAIL,
+                      params: {
+                        classifyId: item.classify_id,
+                        paperId: item.id
+                      }
+                    })
+                  }
+
                 })
             }
           })
         }
-        .divider({ strokeWidth: 1, startMargin: 15, endMargin: 15, color: $r("app.color.gray_full_color") })
+        .divider({
+          strokeWidth: 1,
+          startMargin: 15,
+          endMargin: 15,
+          color: $r("app.color.gray_full_color")
+        })
         .layoutWeight(1)
         .width('100%')
         .borderRadius(30)

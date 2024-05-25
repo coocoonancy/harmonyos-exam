@@ -1,6 +1,13 @@
 import { Constants } from '../../common'
 import router from '@ohos.router';
 import picker from '@ohos.file.picker'
+import { AuthDefaultUser } from '@hw-agconnect/cloud/src/main/ets/auth/user/AuthDefaultUser';
+import cloud, { AuthUser } from '@hw-agconnect/cloud';
+import { UserSetting } from '../../utils';
+import promptAction from '@ohos.promptAction';
+import util from '@ohos.util';
+import { UserInfo } from '../../models';
+import { UserServices } from '../../service';
 
 interface ICardItem {
   leftTitle: string
@@ -8,13 +15,87 @@ interface ICardItem {
   showArrow?: boolean,
   onClick?: () => void
 }
+
 @Entry
 @Component
 export struct UserCenter {
   @State
   showSheet: boolean = false
+  // Constants.USER_AUTH_KEY
+  @StorageProp('user_auth_key')
+  currentUser: AuthUser = new AuthDefaultUser()
+  @State
+  lastLoginTime: string = ""
+  @State
+  avatar: string = ""
+  @State
+  displayName: string = ""
+  @State
+  copyDisplayName: string = ""
+  @State
+  user: UserInfo = new UserInfo()
 
+  aboutToAppear(): void {
+    this.getLastLoginTime()
+    this.getUserProfile()
+    this.getOwnUserInfo()
+  }
 
+  async getUserProfile() {
+    this.displayName = this.currentUser.getDisplayName()
+    this.avatar = this.currentUser.getPhotoUrl()
+  }
+
+  async getOwnUserInfo() {
+    const result = await UserServices.getUserInfoByUserId(this.currentUser.getUid())
+    if (result && result.length) {
+      this.user = result[0]
+    }
+  }
+
+  async updateDisplayName() {
+    if (this.copyDisplayName) {
+      try {
+        // 云认证更新
+        await this.currentUser.updateProfile({
+          displayName: this.copyDisplayName,
+          photoUrl: this.avatar.trim() ||
+            "https://q1.itc.cn/q_70/images03/20240304/b00ebfdfb3ba40b989185a5ae90496e7.jpeg" // 头像如果为空是更新不上去的
+        })
+        this.user.avatar = this.avatar
+        this.user.nick_name = this.copyDisplayName
+        this.user.user_id = this.currentUser.getUid()
+        // 更新云数据库
+        await UserServices.updateUserInfo(this.user) // 有id就是更新没有id就是新增
+        this.getOwnUserInfo() // 重新拉一下
+        // 重新拉取一下数据库的用户信息
+        this.copyDisplayName = "" // 清空输入的值
+        this.getUserProfile() // 重新获取用户的资料
+        promptAction.showToast({ message: '更新成功' })
+        this.showSheet = false // 关闭弹层
+      } catch (error) {
+        promptAction.showToast({ message: error.message })
+      }
+    }
+
+  }
+
+  async getLastLoginTime() {
+    this.lastLoginTime = this.timestampToDateTime(parseInt((await this.currentUser.getUserExtra()).getLastSignInTime()))
+  }
+
+  timestampToDateTime(timestamp: number) {
+    let date = new Date(timestamp);
+    return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+  }
+
+  // 登出操作
+  async logout() {
+    await cloud.auth().signOut() // 云登出
+    UserSetting.setUserAuth("") // 清空首选项573636
+    AppStorage.set<AuthUser>(Constants.USER_AUTH_KEY, new AuthDefaultUser()) // 清空全局状态
+    router.replaceUrl({ url: Constants.PAGE_LOGIN }) // 跳转回登录页
+  }
 
   @Builder
   getCardItem(item: ICardItem) {
@@ -67,25 +148,45 @@ export struct UserCenter {
   getSheetContent() {
     Column({ space: 20 }) {
       TextInput({
-        text: "",
+        text: this.copyDisplayName,
         placeholder: '请输入您的昵称'
       })
         .width('100%')
+        .onChange((value) => {
+          this.copyDisplayName = value
+        })
       Button("修改昵称")
         .backgroundColor($r("app.color.blue_light_color"))
         .width("100%")
+        .onClick(() => {
+          this.updateDisplayName()
+        })
 
     }
     .height('100%')
     .padding(20)
   }
+
   async selectImg() {
     let selectPhoto = new picker.PhotoViewPicker()
-      await selectPhoto.select({
+    const result = await selectPhoto.select({
       maxSelectNumber: 1,
       MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE
     })
+    if (result.photoUris.length) {
+      // 上传图片到agc云存储- agc云存储当前免费用户 只能有一个项目使用开启云存储
+      const fileName = util.generateRandomUUID() + ".jpg"
+      await cloud.storage().upload({
+        localPath: result.photoUris[0], // 本地的文件地址
+        cloudPath: fileName
+      })
+      // 上传成功并不能拿到上传成功的地址
+      this.avatar = await cloud.storage().getDownloadURL(fileName) // 拿到真实云地址 赋值头像
+      this.copyDisplayName = this.displayName // 目的是通过下面的更新方法有检查用户名的逻辑
+      this.updateDisplayName() // 更新用户资料
+    }
   }
+
   build() {
     Row() {
       Column({ space: 20 }) {
@@ -94,15 +195,18 @@ export struct UserCenter {
           Row() {
             // 头像+昵称
             Column() {
-              Image($r('app.media.user_dark'))
+              Image(this.avatar || $r('app.media.user_dark'))
                 .width(64)
                 .aspectRatio(1)
                 .borderRadius(32)
                 .interpolation(ImageInterpolation.High)//减轻低清晰度图片在放大显示时出现的锯齿问题
+                .onError(() => {
+                  this.avatar = "http://img1.baidu.com/it/u=3697703651,4111071712&fm=253&app=138&f=JPEG?w=683&h=707"
+                })
                 .onClick(() => {
                   this.selectImg()
                 })
-              Text("未命名")
+              Text(this.displayName || "未命名")
                 .fontSize(16)
                 .fontWeight(400)
                 .fontColor($r("app.color.text_main_color"))
@@ -142,8 +246,8 @@ export struct UserCenter {
         // 手机号码，上次登录时间部分
         Column() {
           Column() {
-            this.getCardItem({ leftTitle: '手机号码', rightValue: "13812345678" })
-            this.getCardItem({ leftTitle: '上次登录时间', rightValue: "2024-05-01 12:23" })
+            this.getCardItem({ leftTitle: '手机号码', rightValue: this.currentUser.getPhone() })
+            this.getCardItem({ leftTitle: '上次登录时间', rightValue: this.lastLoginTime })
           }
           .borderRadius(8)
           .clip(true)
@@ -160,9 +264,7 @@ export struct UserCenter {
             this.getCardItem({
               leftTitle: '登出', rightValue: '', showArrow: true,
               onClick: () => {
-                router.replaceUrl({
-                  url: Constants.PAGE_LOGIN
-                })
+                this.logout()
               }
             })
           }

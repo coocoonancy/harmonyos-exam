@@ -1,4 +1,7 @@
 // 此组件作用：用来单独呈现答题排行榜
+import { QuestionScoreDisplay } from '../../models'
+import { QuestionUserAllService } from '../../service'
+import emitter from '@ohos.events.emitter'
 
 @Extend(Text)
 function setTextStyle() {
@@ -10,9 +13,22 @@ function setTextStyle() {
 @Component
 export struct Top {
   // 排名：1,2,3调用
+  @State
+  list: QuestionScoreDisplay[] = []
+
+  aboutToAppear(): void {
+    this.getUserTop()
+    // emitter.on('updateTop', () => {
+    //   this.getUserTop()
+    // })
+  }
+
+  async getUserTop() {
+    this.list = await QuestionUserAllService.getAllUserTop()
+  }
 
   @Builder
-  TopListItem(index: number) {
+  TopListItem(item: QuestionScoreDisplay, index: number) {
     Stack({ alignContent: Alignment.Start }) {
       if (index === 0) {
         Image($r("app.media.ic_1"))
@@ -20,24 +36,24 @@ export struct Top {
       } else if (index == 1) {
         Image($r("app.media.ic_2"))
           .height(48)
-      } else if(index === 2) {
+      } else if (index === 2) {
         Image($r("app.media.ic_3"))
           .height(48)
-      }else {
+      } else {
         Text((index + 1).toString())
           .margin({
             left: 18
           })
       }
       Row({ space: 8 }) {
-        Image($r("app.media.waiter"))
+        Image(item.avatar || $r("app.media.waiter"))
           .height(40)
           .aspectRatio(1)
-        Text("张小包")
+        Text(item.nick_name || "未命名")
           .fontSize(13)
           .fontWeight(400)
         Blank()
-        Text('50')
+        Text(item.score.toString())
       }
       .padding({ left: 65 })
       .width('100%')
@@ -73,8 +89,8 @@ export struct Top {
           // 内容
           Scroll() {
             Column({ space: 10 }) {
-              ForEach([1,2,3,4,5], (item: number, index: number) => {
-                this.TopListItem(index)
+              ForEach(this.list, (item: QuestionScoreDisplay, index: number) => {
+                this.TopListItem(item, index)
               })
             }
           }

@@ -1,7 +1,8 @@
 import { Constants } from '../../common/index';
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
-import cloud, { VerifyCodeAction } from '@hw-agconnect/cloud';
+import cloud, { AuthUser, VerifyCodeAction } from '@hw-agconnect/cloud';
+import { UserSetting } from '../../utils';
 
 @Extend(TextInput)
 function commonStyle() {
@@ -22,7 +23,7 @@ function commonButtonStyle() {
 @Component
 struct Login {
   @State
-  mobile: string = "18367194153"
+  mobile: string = "19957106275"
   @State
   code: string = ""
   @State
@@ -67,12 +68,34 @@ struct Login {
 
   async login() {
     try {
+      // 实现云登录
+      const result = await cloud.auth().signIn({
+        credentialInfo: {
+          kind: "phone",
+          countryCode: '86',
+          phoneNumber: this.mobile,
+          verifyCode: this.code
+        }
+      })
+      // 说明此时登录成功
+      // AlertDialog.show({ message: JSON.stringify(result) })
+      // 拿到用户的信息
+      const currentUser = result.getUser()
+      UserSetting.setUserAuth(JSON.stringify(currentUser)) // 写入首选项
+      // 写入全局状态
+      // Constants.USER_AUTH_KEY
+      AppStorage.setOrCreate<AuthUser>('user_auth_key', currentUser)
+      // promptAction.showToast({ message: '登录成功' })
       router.pushUrl({
         url: Constants.PAGE_INDEX
       })
     } catch (error) {
       promptAction.showToast({ message: error.message })
     }
+  }
+
+  aboutToDisappear(): void {
+    clearInterval(this.timer)
   }
 
   build() {
@@ -114,8 +137,8 @@ struct Login {
         }
 
         Button('登录')
-          .enabled(true)
           .commonButtonStyle()
+          .enabled(this.checkCode() && this.checkMobile())
           .onClick(() => {
             this.login()
           })

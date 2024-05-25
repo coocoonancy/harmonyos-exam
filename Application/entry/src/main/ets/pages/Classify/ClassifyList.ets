@@ -1,17 +1,34 @@
 import { ClassifyItem } from './ClassifyItem' //练习列表项组件
 import router from '@ohos.router'
 import { Constants } from '../../common'
+import { QuestionClassify } from '../../models'
+import { QuestionClassifyService } from '../../service'
 
 @Entry
 @Component
 export struct ClassifyList {
+  @State
+  classifyList: QuestionClassify[] = []
+
+  aboutToAppear(): void {
+    this.getQuestionClassify()
+  }
+
+  async getQuestionClassify() {
+    this.classifyList = await QuestionClassifyService.getQuestionClassify()
+  }
+
   build() {
     Row() {
       List({ space: 15 }) {
-        ForEach([1,2,3,4], () => {
-          ClassifyItem()
+        ForEach(this.classifyList, (item: QuestionClassify) => {
+          ClassifyItem({ item })
             .onClick(() => {
-              router.pushUrl({ url: Constants.PAGE_PAPER_LIST })
+              router.pushUrl({
+                url: Constants.PAGE_PAPER_LIST, params: {
+                  classifyId: item.id // 大类 -> 试卷 携带 大类的id 用来获取哪个大类的试卷
+                }
+              })
             })
         })
       }

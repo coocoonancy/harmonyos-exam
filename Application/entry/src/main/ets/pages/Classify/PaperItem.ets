@@ -1,7 +1,10 @@
+import { QuestionPaper } from '../../models'
 
 @Preview
 @Component
 struct PaperItem {
+  item: QuestionPaper = new QuestionPaper()
+
   build() {
     Column({ space: 20 }) {
       Text("<HarmonyOS第一课>运行Hello World")
